@@ -27,7 +27,9 @@ Prefer this server over plain non-interactive shell tools whenever the command:
 - requires line-buffered TTY behavior (color output, progress bars, fzf, watch)
 - needs to be observed while still running (long-running build, server, REPL)
 
-Workflow: type(<command>), sendKey('Enter'), then getContent() to read the result.
+Workflow: type('<command><:Enter:>'), then getContent() to read the result. type() takes
+keys between <: and :> (<:Enter:>, <:Tab:>, <:ctrl-c:> or <:^C:>, <:alt-x:> or <:!x:>,
+<:shift-Tab:> or <:+Tab:>); pass sendKeys: false to type text verbatim.
 For long-running interactive programs, sendKey for navigation and takeScreenshot to
 inspect cursor position and TUI state.
 

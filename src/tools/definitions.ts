@@ -15,13 +15,19 @@ export interface ToolDefinition {
 export const toolDefinitions: ToolDefinition[] = [
   {
     name: "type",
-    description: "Type text into the terminal",
+    description:
+      "Type text into the terminal, with keys between <: and :> (e.g. ls<:Enter:>, <:ctrl-c:>, <:^C:>, <:alt-ctrl-C:>, <:+Tab:>); unrecognized keys or unmatched <: :> are typed literally with a warning",
     inputSchema: {
       type: "object",
       properties: {
         text: {
-          type: "string",
-          description: "The text to type",
+          anyOf: [{ type: "string" }, { type: "array", items: { type: "string" } }],
+          description: "The text to type, or an array of strings typed in order",
+        },
+        sendKeys: {
+          type: "boolean",
+          description: "Parse <:Key:> escapes in text (default: true); false types text verbatim",
+          default: true,
         },
       },
       required: ["text"],
