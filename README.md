@@ -179,16 +179,26 @@ In headless mode, the terminal session is initialized eagerly at startup, so all
 All input/output tools (`type`, `sendKey`, `getContent`, `takeScreenshot`) accept an optional `sessionId` argument. Omit it to target the default session; pass the ID returned by `createSession` to drive a specific session.
 
 ### `type`
-Send text input to the terminal.
+Send text input to the terminal. Keys can be embedded between `<:` and `:>`, so a whole interaction fits in one call. `text` may be a string or an array of strings typed in order.
 
 ```json
 {
   "name": "type",
   "arguments": {
-    "text": "echo hello"
+    "text": "echo hello<:Enter:>"
   }
 }
 ```
+
+Key escapes (parsed unless `"sendKeys": false`):
+
+| Escape | Sends |
+|--------|-------|
+| `<:Enter:>`, `<:Tab:>`, `<:Escape:>`, `<:Backspace:>`, `<:Delete:>`, `<:ArrowUp:>`, `<:Home:>`, `<:PageUp:>`, `<:F1:>`–`<:F12:>`, … | The named key (same names as `sendKey`; case-insensitive) |
+| `<:ctrl-c:>`, `<:alt-x:>`, `<:shift-Tab:>`, `<:alt-ctrl-C:>`, `<:ctrl-alt-C:>` | Key with modifiers (`ctrl`/`alt`/`shift` words, any order) |
+| `<:^C:>`, `<:!x:>`, `<:+Tab:>`, `<:!^C:>` | Same, using prefixes `^` = ctrl, `!` = alt, `+` = shift |
+
+A single character needs at least one modifier (`<:^C:>`; for a plain `c`, just type `c`). Anything between the delimiters that isn't a recognized key, and any unmatched `<:` or `:>`, is typed literally and reported as a warning in the result, so code like `T <: Number` comes out as written. Pass `"sendKeys": false` to type text verbatim with no parsing or warnings.
 
 ### `sendKey`
 Send special keys or key combinations.
