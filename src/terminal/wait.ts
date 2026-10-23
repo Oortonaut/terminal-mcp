@@ -19,8 +19,6 @@ export interface WaitOptions {
   initialWaitMs?: number;
   /** Return as soon as this is true */
   until?: () => boolean;
-  /** Only test until once new output has arrived (when the screen may still show a stale match) */
-  untilAfterOutput?: boolean;
   /** Hard cap on the whole wait, so a stream that never ends can't hang the call */
   maxWaitMs?: number;
 }
@@ -74,7 +72,7 @@ export function waitForOutput(source: OutputSource, options: WaitOptions): Promi
 
       if (!source.isActive()) return done("exited");
       const sawOutput = source.outputCount() !== startCount;
-      if (options.until && (sawOutput || !options.untilAfterOutput) && options.until()) return done("matched");
+      if (options.until?.()) return done("matched");
 
       let target = deadline;
       if (quietRule) {

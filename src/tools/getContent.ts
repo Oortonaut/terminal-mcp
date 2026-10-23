@@ -144,8 +144,12 @@ export interface ReadRequest {
   end?: number;
   maxLines?: number;
   until?: RegExp;
-  /** Ignore until matches until new output arrives (type(): the old prompt is still on screen) */
-  untilAfterOutput?: boolean;
+  /**
+   * Text up to the cursor that never counts as a match: for type(), the screen as it was before
+   * typing, where the old prompt would match at once. Comparing text rather than waiting for any
+   * output matters because some line editors (e.g. PSReadLine) first send invisible sequences.
+   */
+  untilIgnore?: string;
   waitMs?: number;
   initialWaitMs?: number;
   maxWaitMs?: number;
@@ -154,15 +158,16 @@ export interface ReadRequest {
 
 /** Wait as the request asks (if at all); otherwise just let xterm catch up on output. */
 async function waitAsRequested(manager: TerminalManager, request: ReadRequest): Promise<WaitResult | undefined> {
-  const { until, begin, sessionId } = request;
+  const { until, untilIgnore, begin, sessionId } = request;
   if (!wantsWait(request)) {
     await manager.flush(sessionId);
     return undefined;
   }
-  return manager.waitForOutput(
-    { ...request, until: until && (() => until.test(manager.textToCursor(begin, sessionId))) },
-    sessionId
-  );
+  const matches = () => {
+    const text = manager.textToCursor(begin, sessionId);
+    return text !== untilIgnore && until!.test(text);
+  };
+  return manager.waitForOutput({ ...request, until: until && matches }, sessionId);
 }
 
 /** Optionally wait for output, then read and format lines. */

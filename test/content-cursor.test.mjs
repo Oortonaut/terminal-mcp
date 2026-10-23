@@ -81,3 +81,24 @@ test("type with until waits for a program's own prompt, not the one already on s
     await waitFor(() => state.exit !== null).catch(() => state.child.kill());
   }
 });
+
+test("type's until ignores the prompt it is answering, even after invisible output", async () => {
+  const state = spawnNode(["dist/index.js", "--headless"]);
+  try {
+    await initialize(state);
+    await call(state, 2, "getContent", { waitMs: 1000, initialWaitMs: 5000 });
+    await call(state, 3, "type", { text: "node test/fixtures/quiet-echo-repl.mjs<:Enter:>", until: "> $", maxWaitMs: 20000 });
+
+    // The fixture's first response to a keystroke is an invisible "hide cursor" sequence, sent
+    // while "> " is still under the cursor; only the reply ~400ms later should end the wait
+    const result = await call(state, 4, "type", { text: "hello<:Enter:>", until: "> $", maxWaitMs: 20000 });
+    const waited = Number(result.match(/waited (\d+\.\d)s, matched until\]/)?.[1]);
+    assert.ok(waited >= 0.3, `should wait for the reply, waited ${waited}s:\n${result}`);
+    assert.match(result, /^reply$/m);
+
+    await call(state, 5, "type", { text: "<:^C:>", waitMs: 300 });
+  } finally {
+    state.child.stdin.end();
+    await waitFor(() => state.exit !== null).catch(() => state.child.kill());
+  }
+});

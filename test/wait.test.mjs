@@ -103,17 +103,10 @@ test("until ends the wait as soon as it matches, re-checked on each parsed outpu
   assert.equal(source.listenerCount(), 0, "unsubscribes when done");
 });
 
-test("until matches immediately if already true, unless untilAfterOutput", async () => {
+test("until matches immediately if already true", async () => {
   const already = await waitForOutput(fakeSource(), { until: () => true });
   assert.equal(already.reason, "matched");
   assert.ok(already.waitedMs < 20);
-
-  // type(): the old prompt still matches until new output replaces it
-  const source = fakeSource();
-  emitAt(source, [80]);
-  const after = await waitForOutput(source, { until: () => true, untilAfterOutput: true });
-  assert.equal(after.reason, "matched");
-  assert.ok(after.waitedMs >= 75, `waited ${after.waitedMs}ms`);
 });
 
 test("until alone ignores silence and waits up to maxWaitMs", async () => {

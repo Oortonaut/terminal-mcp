@@ -232,7 +232,7 @@ Key escapes (parsed unless `"sendKeys": false`):
 
 A single character needs at least one modifier (`<:^C:>`; for a plain `c`, just type `c`). Anything between the delimiters that isn't a recognized key, and any unmatched `<:` or `:>`, is typed literally and reported as a warning in the result, so code like `T <: Number` comes out as written. Pass `"sendKeys": false` to type text verbatim with no parsing or warnings.
 
-With a wait option, `type` makes a request/response cycle in one call. It waits, then returns everything from the line it typed on, in `getContent`'s format. It accepts the same `until`, `waitMs`, `initialWaitMs`, `maxWaitMs` and `maxLines` (see [Waiting for output](#waiting-for-output)). `type` only checks `until` once new output has arrived, because the prompt you're replacing is still on screen at the moment you type.
+With a wait option, `type` makes a request/response cycle in one call. It waits, then returns everything from the line it typed on, in `getContent`'s format. It accepts the same `until`, `waitMs`, `initialWaitMs`, `maxWaitMs` and `maxLines` (see [Waiting for output](#waiting-for-output)). `type` doesn't count an `until` match until the screen has changed from how it was when you typed, because the prompt you're answering would otherwise match straight away.
 
 Without a wait, it returns the cursor from before typing (`Typed 11 character(s) to terminal [cursor 3]`), so `getContent({ begin: 3 })` reads just that command's output.
 

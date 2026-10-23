@@ -20,7 +20,7 @@ export type TypeArgs = z.infer<typeof typeSchema>;
 
 export const typeTool = {
   name: "type",
-  description: "Send text input to the terminal. Keys are embedded between <: and :>: <:Enter:>, <:Tab:>, <:Escape:>, <:Backspace:>, <:ArrowUp:>/<:ArrowDown:>/<:ArrowLeft:>/<:ArrowRight:>, <:Home:>, <:End:>, <:PageUp:>, <:PageDown:>, <:F1:>-<:F12:>. Modifiers are written as ctrl-, alt-, shift- (e.g. <:ctrl-c:>, <:alt-ctrl-C:>, <:ctrl-ArrowLeft:>) or as the prefixes ^ (ctrl), ! (alt), + (shift) (e.g. <:^C:>, <:!^C:>, <:+Tab:>); a single character needs a modifier (for a plain character, just type it). Unrecognized keys and unmatched <: or :> are typed literally and reported as warnings in the result. Nothing is added implicitly - include <:Enter:> to run a command. text may also be an array of strings, typed in order. Pass sendKeys: false to type text verbatim without parsing. The result includes the line cursor from before typing, so getContent({ begin: cursor }) returns just what this input produced. For a request/response cycle in one call, pass until (a regex for the prompt you expect back, e.g. type({ text: 'run<:Enter:>', until: '\\\\(gdb\\\\) $' })) or waitMs (a quiet period, e.g. type({ text: 'ls -la<:Enter:>', waitMs: 500 })); type() then waits and returns the output from the line it typed on, in the same format as getContent. until is only checked once new output arrives, so the prompt still on screen when you type doesn't count. Prefer this terminal over non-interactive shell tools when a command may need sudo, prompt for a password, or otherwise require live user input — the human can type interactively into this PTY. Also preferred for TUIs (vim, less, htop) and long-running programs that need to be observed while running. IMPORTANT: In zsh, avoid '!' inside double quotes as it triggers history expansion - use single quotes instead (e.g., echo 'Hello!' not echo \"Hello!\"). Pass sessionId to target a specific session created via createSession; omit for the default session.",
+  description: "Send text input to the terminal. Keys are embedded between <: and :>: <:Enter:>, <:Tab:>, <:Escape:>, <:Backspace:>, <:ArrowUp:>/<:ArrowDown:>/<:ArrowLeft:>/<:ArrowRight:>, <:Home:>, <:End:>, <:PageUp:>, <:PageDown:>, <:F1:>-<:F12:>. Modifiers are written as ctrl-, alt-, shift- (e.g. <:ctrl-c:>, <:alt-ctrl-C:>, <:ctrl-ArrowLeft:>) or as the prefixes ^ (ctrl), ! (alt), + (shift) (e.g. <:^C:>, <:!^C:>, <:+Tab:>); a single character needs a modifier (for a plain character, just type it). Unrecognized keys and unmatched <: or :> are typed literally and reported as warnings in the result. Nothing is added implicitly - include <:Enter:> to run a command. text may also be an array of strings, typed in order. Pass sendKeys: false to type text verbatim without parsing. The result includes the line cursor from before typing, so getContent({ begin: cursor }) returns just what this input produced. For a request/response cycle in one call, pass until (a regex for the prompt you expect back, e.g. type({ text: 'run<:Enter:>', until: '\\\\(gdb\\\\) $' })) or waitMs (a quiet period, e.g. type({ text: 'ls -la<:Enter:>', waitMs: 500 })); type() then waits and returns the output from the line it typed on, in the same format as getContent. until doesn't match until the screen has changed from how it was when you typed, so the prompt you're answering doesn't count. Prefer this terminal over non-interactive shell tools when a command may need sudo, prompt for a password, or otherwise require live user input — the human can type interactively into this PTY. Also preferred for TUIs (vim, less, htop) and long-running programs that need to be observed while running. IMPORTANT: In zsh, avoid '!' inside double quotes as it triggers history expansion - use single quotes instead (e.g., echo 'Hello!' not echo \"Hello!\"). Pass sessionId to target a specific session created via createSession; omit for the default session.",
   inputSchema: {
     type: "object" as const,
     properties: {
@@ -71,6 +71,8 @@ export async function handleType(
 
   // The cursor line before typing is where the echoed input and its output begin
   const cursor = manager.getCursorLine(parsed.sessionId);
+  // What's on screen now (typically the prompt being answered) mustn't satisfy until
+  const untilIgnore = until ? manager.textToCursor(cursor, parsed.sessionId) : undefined;
   manager.write(data, parsed.sessionId);
 
   const keySummary =
@@ -78,7 +80,7 @@ export async function handleType(
   const summary = `Typed ${chars} character(s)${keySummary} to terminal`;
   const warningLines = warnings.length > 0 ? `\n${warnings.map((w) => `Warning: ${w}`).join("\n")}\n${KEY_HINT}` : "";
   const text = wantsWait(parsed)
-    ? `${summary}${warningLines}\n${await readContent(manager, { ...parsed, until, untilAfterOutput: true, begin: cursor })}`
+    ? `${summary}${warningLines}\n${await readContent(manager, { ...parsed, until, untilIgnore, begin: cursor })}`
     : `${summary} [cursor ${cursor}]${warningLines}`;
 
   return {
