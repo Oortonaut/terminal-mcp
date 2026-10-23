@@ -37,8 +37,8 @@ test("type with waitMs returns the command's output, capped, and begin/end page 
     assert.ok(earlier.includes("row0"));
 
     // Without a wait, type returns the cursor; reading from it shows only the new command
-    const typed = await call(state, 5, "type", { text: "echo after_marker\r" });
-    const cursor = Number(typed.match(/\[cursor (\d+)\]$/)?.[1]);
+    const typed = await call(state, 5, "type", { text: "echo after_marker<:Enter:>" });
+    const cursor = Number(typed.match(/key\(s\): <:Enter:> to terminal \[cursor (\d+)\]$/)?.[1]);
     assert.ok(Number.isInteger(cursor), typed);
     const after = await call(state, 6, "getContent", { begin: cursor, waitMs: 1000 });
     assert.match(after, /after_marker/);
@@ -56,7 +56,9 @@ test("type with until waits for a program's own prompt, not the one already on s
     await call(state, 2, "getContent", { waitMs: 1000, initialWaitMs: 5000 });
 
     // The Node REPL stands in for gdb, python, etc.: its prompt is "> "
-    const started = await call(state, 3, "type", { text: "node -i\r", until: "> $", maxWaitMs: 20000 });
+    // Key escapes and waits together: <:Enter:> submits, until waits for the REPL's prompt
+    const started = await call(state, 3, "type", { text: "node -i<:Enter:>", until: "> $", maxWaitMs: 20000 });
+    assert.match(started, /^Typed 7 character\(s\) and 1 key\(s\): <:Enter:> to terminal\n/);
     assert.match(started, /waited \d+\.\ds, matched until\]/);
 
     // "> " is already on screen when this is typed; the wait must hold out for the next one

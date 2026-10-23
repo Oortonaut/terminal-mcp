@@ -179,17 +179,27 @@ In headless mode, the terminal session is initialized eagerly at startup, so all
 All input/output tools (`type`, `sendKey`, `getContent`, `takeScreenshot`) accept an optional `sessionId` argument. Omit it to target the default session; pass the ID returned by `createSession` to drive a specific session.
 
 ### `type`
-Send text input to the terminal. End the text with `\r` to run it as a command.
+Send text input to the terminal. Keys can be embedded between `<:` and `:>`, so a whole interaction fits in one call. `text` may be a string or an array of strings typed in order.
 
 ```json
 {
   "name": "type",
   "arguments": {
-    "text": "run\r",
+    "text": "run<:Enter:>",
     "until": "\\(gdb\\) $"
   }
 }
 ```
+
+Key escapes (parsed unless `"sendKeys": false`):
+
+| Escape | Sends |
+|--------|-------|
+| `<:Enter:>`, `<:Tab:>`, `<:Escape:>`, `<:Backspace:>`, `<:Delete:>`, `<:ArrowUp:>`, `<:Home:>`, `<:PageUp:>`, `<:F1:>`–`<:F12:>`, … | The named key (same names as `sendKey`; case-insensitive) |
+| `<:ctrl-c:>`, `<:alt-x:>`, `<:shift-Tab:>`, `<:alt-ctrl-C:>`, `<:ctrl-alt-C:>` | Key with modifiers (`ctrl`/`alt`/`shift` words, any order) |
+| `<:^C:>`, `<:!x:>`, `<:+Tab:>`, `<:!^C:>` | Same, using prefixes `^` = ctrl, `!` = alt, `+` = shift |
+
+A single character needs at least one modifier (`<:^C:>`; for a plain `c`, just type `c`). Anything between the delimiters that isn't a recognized key, and any unmatched `<:` or `:>`, is typed literally and reported as a warning in the result, so code like `T <: Number` comes out as written. Pass `"sendKeys": false` to type text verbatim with no parsing or warnings.
 
 With a wait option, `type` makes a request/response cycle in one call. It waits, then returns everything from the line it typed on, in `getContent`'s format. It accepts the same `until`, `waitMs`, `initialWaitMs`, `maxWaitMs` and `maxLines` (see [Waiting for output](#waiting-for-output)). `type` only checks `until` once new output has arrived, because the prompt you're replacing is still on screen at the moment you type.
 
@@ -509,10 +519,10 @@ terminal-mcp (client, spawned by MCP client)
 
 ```bash
 # Run a command and get its output in one call
-{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"type","arguments":{"text":"ls -la\r","waitMs":500}}}
+{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"type","arguments":{"text":"ls -la<:Enter:>","waitMs":500}}}
 
 # Or step by step: type returns a cursor...
-{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"type","arguments":{"text":"make\r"}}}
+{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"type","arguments":{"text":"make<:Enter:>"}}}
 
 # ...and getContent reads only what came after it, once output goes quiet
 {"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"getContent","arguments":{"begin":42,"waitMs":2000}}}
