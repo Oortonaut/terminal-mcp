@@ -4,6 +4,8 @@ import type { SandboxController } from "../sandbox/index.js";
 import { RecordingManager } from "../recording/index.js";
 import type { RecordingMode, RecordingFormat, RecordingMetadata, StopReason } from "../recording/index.js";
 import { getDefaultRecordDir } from "../utils/platform.js";
+import type { LineRead, LineReadOptions } from "./lines.js";
+import { waitForOutput, type WaitOptions, type WaitResult } from "./wait.js";
 
 export interface TerminalManagerOptions extends TerminalSessionOptions {
   sandboxController?: SandboxController;
@@ -396,6 +398,32 @@ export class TerminalManager {
 
   getVisibleContent(sessionId?: string): string {
     return this.resolveSessionSync(sessionId).getVisibleContent();
+  }
+
+  readLines(options: LineReadOptions = {}, sessionId?: string): LineRead {
+    return this.resolveSessionSync(sessionId).readLines(options);
+  }
+
+  getCursorLine(sessionId?: string): number {
+    return this.resolveSessionSync(sessionId).getCursorLine();
+  }
+
+  textToCursor(begin?: number, sessionId?: string): string {
+    return this.resolveSessionSync(sessionId).textToCursor(begin);
+  }
+
+  /**
+   * Wait for output (see waitForOutput), then for xterm to parse it all
+   */
+  async waitForOutput(options: WaitOptions, sessionId?: string): Promise<WaitResult> {
+    const session = this.resolveSessionSync(sessionId);
+    const result = await waitForOutput(session, options);
+    await session.flush();
+    return result;
+  }
+
+  flush(sessionId?: string): Promise<void> {
+    return this.resolveSessionSync(sessionId).flush();
   }
 
   getAnsiContent(visibleOnly = false, sessionId?: string): string {

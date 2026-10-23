@@ -36,6 +36,8 @@ Terminal MCP is a headless terminal emulator exposed via Model Context Protocol 
 
 **Terminal Layer** (`src/terminal/`):
 - `session.ts`: Core integration of `node-pty` (PTY process) + `@xterm/headless` (terminal emulation). Handles shell-specific prompt customization via temp rc files. Resolves its shell through `src/utils/shells.ts`, which maps names (`pwsh`, `git-bash`, `wsl`, `zsh`, ...) or paths to executables, applying `--shell` → `TERMINAL_MCP_SHELL` → platform default.
+- `lines.ts`: `LineTracker` gives every row a stable number from session start (counting rows trimmed from scrollback via xterm's internal line list, since the public API has no trim event) and reads ranges by number, joining soft-wrapped rows. Backs `getContent`'s `begin`/`end`/`maxLines`, the cursor in its header, and `textToCursor` (what `until` patterns match against).
+- `wait.ts`: `waitForOutput` — ends when the `until` predicate matches (re-checked each time xterm parses output), or, with `waitMs`/`initialWaitMs`, when output doesn't start or goes quiet; always capped by `maxWaitMs`. Shared by `getContent` and `type`; `type` snapshots the text up to the cursor before typing and passes it as `untilIgnore`, so the prompt it's answering doesn't match (comparing text, not "any output arrived", because line editors like PSReadLine send invisible sequences first).
 - `manager.ts`: Multi-session manager. Owns a map of `TerminalSession`s plus a single `RecordingManager` and (optional) `SandboxController`. The "default" session is auto-created on first use and is the implicit target of any tool call without a `sessionId`. Idle non-default sessions are GC'd on a 60s interval.
 
 **Tool Layer** (`src/tools/`):

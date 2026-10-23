@@ -97,33 +97,33 @@ test("a stray opener does not swallow a following key", () => {
 
 function fakeManager() {
   const writes = [];
-  return { writes, write: (d, sessionId) => writes.push({ d, sessionId }) };
+  return { writes, write: (d, sessionId) => writes.push({ d, sessionId }), getCursorLine: () => 7 };
 }
 
-test("handleType concatenates an array of segments into one write", () => {
+test("handleType concatenates an array of segments into one write", async () => {
   const m = fakeManager();
-  const result = handleType(m, { text: ["vim x<:Enter:>", "ihi<:Escape:>", ":wq<:Enter:>"], sessionId: "s1" });
+  const result = await handleType(m, { text: ["vim x<:Enter:>", "ihi<:Escape:>", ":wq<:Enter:>"], sessionId: "s1" });
   assert.deepEqual(m.writes, [{ d: "vim x\rihi\x1b:wq\r", sessionId: "s1" }]);
   assert.equal(
     result.content[0].text,
-    "Typed 11 character(s) and 3 key(s): <:Enter:> <:Escape:> <:Enter:> to terminal"
+    "Typed 11 character(s) and 3 key(s): <:Enter:> <:Escape:> <:Enter:> to terminal [cursor 7]"
   );
 });
 
-test("handleType with sendKeys: false types escapes verbatim", () => {
+test("handleType with sendKeys: false types escapes verbatim", async () => {
   const m = fakeManager();
-  const result = handleType(m, { text: ["echo ", "<:Enter:>"], sendKeys: false });
+  const result = await handleType(m, { text: ["echo ", "<:Enter:>"], sendKeys: false });
   assert.deepEqual(m.writes, [{ d: "echo <:Enter:>", sessionId: undefined }]);
-  assert.equal(result.content[0].text, "Typed 14 character(s) to terminal");
+  assert.equal(result.content[0].text, "Typed 14 character(s) to terminal [cursor 7]");
 });
 
-test("handleType types bad escapes literally and reports them as warnings", () => {
+test("handleType types bad escapes literally and reports them as warnings", async () => {
   const m = fakeManager();
-  const result = handleType(m, { text: ["ok<:Enter:>", "echo <:c:><:Enter:>"] });
+  const result = await handleType(m, { text: ["ok<:Enter:>", "echo <:c:><:Enter:>"] });
   assert.deepEqual(m.writes, [{ d: "ok\recho <:c:>\r", sessionId: undefined }]);
   assert.equal(result.isError, undefined);
   const lines = result.content[0].text.split("\n");
-  assert.equal(lines[0], "Typed 12 character(s) and 2 key(s): <:Enter:> <:Enter:> to terminal");
+  assert.equal(lines[0], "Typed 12 character(s) and 2 key(s): <:Enter:> <:Enter:> to terminal [cursor 7]");
   assert.match(lines[1], /^Warning: text\[1\]: "<:c:>" at position 5: a single character needs a modifier; typed literally$/);
   assert.match(lines[2], /sendKeys: false/);
   assert.equal(lines.length, 3);

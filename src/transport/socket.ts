@@ -185,7 +185,7 @@ async function handleToolRequest(
     switch (method) {
       case "type":
         stats.recordToolCall("type");
-        result = handleType(manager, params);
+        result = await handleType(manager, params);
         break;
 
       case "sendKey":
@@ -195,7 +195,7 @@ async function handleToolRequest(
 
       case "getContent":
         stats.recordToolCall("getContent");
-        result = handleGetContent(manager, params);
+        result = await handleGetContent(manager, params);
         break;
 
       case "takeScreenshot":

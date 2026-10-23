@@ -42,13 +42,13 @@ export function registerTools(server: Server, manager: TerminalManager): void {
     try {
       switch (name) {
         case "type":
-          return handleType(manager, args);
+          return await handleType(manager, args);
 
         case "sendKey":
           return handleSendKey(manager, args);
 
         case "getContent":
-          return handleGetContent(manager, args);
+          return await handleGetContent(manager, args);
 
         case "takeScreenshot":
           return handleScreenshot(manager, args);

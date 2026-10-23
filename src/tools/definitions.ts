@@ -2,6 +2,8 @@
  * Shared tool definitions used by both MCP client and UI
  */
 
+import { readOptionsProperties } from "./getContent.js";
+
 export interface ToolDefinition {
   name: string;
   description: string;
@@ -16,7 +18,7 @@ export const toolDefinitions: ToolDefinition[] = [
   {
     name: "type",
     description:
-      "Type text into the terminal, with keys between <: and :> (e.g. ls<:Enter:>, <:ctrl-c:>, <:^C:>, <:alt-ctrl-C:>, <:+Tab:>); unrecognized keys or unmatched <: :> are typed literally with a warning",
+      "Type text into the terminal, with keys between <: and :> (e.g. ls<:Enter:>, <:ctrl-c:>, <:^C:>, <:alt-ctrl-C:>, <:+Tab:>); unrecognized keys or unmatched <: :> are typed literally with a warning. Returns the line cursor from before typing; pass until (a regex for the prompt you expect, e.g. \"\\\\(gdb\\\\) $\") or waitMs (a quiet period) to get the output back in the same call",
     inputSchema: {
       type: "object",
       properties: {
@@ -29,6 +31,7 @@ export const toolDefinitions: ToolDefinition[] = [
           description: "Parse <:Key:> escapes in text (default: true); false types text verbatim",
           default: true,
         },
+        ...readOptionsProperties,
       },
       required: ["text"],
     },
@@ -50,10 +53,20 @@ export const toolDefinitions: ToolDefinition[] = [
   },
   {
     name: "getContent",
-    description: "Get the current content of the terminal buffer",
+    description:
+      "Get terminal lines, headed by [lines A-B · cursor N]. Pass a previous cursor as begin to read only newer output; pass until (a prompt regex) or waitMs (a quiet period) to wait for output first",
     inputSchema: {
       type: "object",
       properties: {
+        begin: {
+          type: "number",
+          description: "First line number to return, usually a previous cursor",
+        },
+        end: {
+          type: "number",
+          description: "Line number to stop before (exclusive)",
+        },
+        ...readOptionsProperties,
         visibleOnly: {
           type: "boolean",
           description: "If true, only return visible content (default: false)",
