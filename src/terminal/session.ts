@@ -4,7 +4,7 @@ import * as os from "os";
 import * as path from "path";
 import xtermHeadless from "@xterm/headless";
 const { Terminal } = xtermHeadless;
-import { getDefaultShell } from "../utils/platform.js";
+import { resolveShell } from "../utils/shells.js";
 import type { SandboxController } from "../sandbox/index.js";
 
 // Custom prompt indicator for terminal-mcp.
@@ -17,7 +17,10 @@ const PROMPT_INDICATOR = "⚡ mcp";
 export interface TerminalSessionOptions {
   cols?: number;
   rows?: number;
+  /** Shell name (e.g. "pwsh", "git-bash", "zsh") or path; see resolveShell() */
   shell?: string;
+  /** Extra arguments passed to the shell after any prompt-setup arguments */
+  shellArgs?: string[];
   cwd?: string;
   env?: Record<string, string>;
   startupBanner?: string;
@@ -50,6 +53,8 @@ export class TerminalSession {
 
   private rcFile: string | null = null;
   private zdotdir: string | null = null;
+  private shell = "";
+  private shellArgs: string[] = [];
 
   /**
    * Private constructor - use TerminalSession.create() instead
@@ -155,18 +160,13 @@ ${bannerCmd}
     }
 
     // PowerShell (pwsh is PowerShell Core, powershell is Windows PowerShell)
-    if (
-      shellName === "powershell" ||
-      shellName === "powershell.exe" ||
-      shellName === "pwsh" ||
-      shellName === "pwsh.exe"
-    ) {
+    if (shellName === "powershell" || shellName === "pwsh") {
       env.TERMINAL_MCP_PROMPT = "1";
       return { args: ["-NoLogo"], env };
     }
 
     // Windows cmd.exe
-    if (shellName === "cmd" || shellName === "cmd.exe") {
+    if (shellName === "cmd") {
       env.PROMPT = `${PROMPT_INDICATOR} $P$G`;
       return { args: [], env };
     }
@@ -183,7 +183,9 @@ ${bannerCmd}
   private async initialize(options: TerminalSessionOptions): Promise<void> {
     const cols = options.cols ?? 120;
     const rows = options.rows ?? 40;
-    const shell = options.shell ?? getDefaultShell();
+    const shell = resolveShell(options.shell);
+    this.shell = shell;
+    this.shellArgs = options.shellArgs ?? [];
 
     // Create headless terminal emulator
     this.terminal = new Terminal({
@@ -193,9 +195,10 @@ ${bannerCmd}
       allowProposedApi: true,
     });
 
-    // Determine shell type and set up custom prompt
-    const shellName = path.basename(shell);
-    const { args, env } = this.setupShellPrompt(shellName, options.env, options.startupBanner);
+    // Determine shell type and set up custom prompt ("C:\...\pwsh.exe" -> "pwsh")
+    const shellName = path.basename(shell).toLowerCase().replace(/\.exe$/, "");
+    const { args: promptArgs, env } = this.setupShellPrompt(shellName, options.env, options.startupBanner);
+    const args = [...promptArgs, ...this.shellArgs];
 
     // Determine spawn command - may be wrapped by sandbox
     let spawnCmd = shell;
@@ -513,6 +516,20 @@ ${bannerCmd}
       cols: this.terminal.cols,
       rows: this.terminal.rows,
     };
+  }
+
+  /**
+   * Get the resolved shell executable path
+   */
+  getShell(): string {
+    return this.shell;
+  }
+
+  /**
+   * Get the extra shell arguments the session was started with
+   */
+  getShellArgs(): string[] {
+    return [...this.shellArgs];
   }
 
   /**
