@@ -35,9 +35,9 @@ Terminal MCP is a headless terminal emulator exposed via Model Context Protocol 
 ### Key Components
 
 **Terminal Layer** (`src/terminal/`):
-- `session.ts`: Core integration of `node-pty` (PTY process) + `@xterm/headless` (terminal emulation). Handles shell-specific prompt customization via temp rc files.
+- `session.ts`: Core integration of `node-pty` (PTY process) + `@xterm/headless` (terminal emulation). Handles shell-specific prompt customization via temp rc files. Resolves its shell through `src/utils/shells.ts`, which maps names (`pwsh`, `git-bash`, `wsl`, `zsh`, ...) or paths to executables, applying `--shell` → `TERMINAL_MCP_SHELL` → platform default.
 - `lines.ts`: `LineTracker` gives every row a stable number from session start (counting rows trimmed from scrollback via xterm's internal line list, since the public API has no trim event) and reads ranges by number, joining soft-wrapped rows. Backs `getContent`'s `begin`/`end`/`maxLines`, the cursor in its header, and `textToCursor` (what `until` patterns match against).
-- `wait.ts`: `waitForOutput` — ends when the `until` predicate matches (re-checked each time xterm parses output), or, with `waitMs`/`initialWaitMs`, when output doesn't start or goes quiet; always capped by `maxWaitMs`. Shared by `getContent` and `type`; `type` sets `untilAfterOutput` so the prompt still on screen when it types doesn't match.
+- `wait.ts`: `waitForOutput` — ends when the `until` predicate matches (re-checked each time xterm parses output), or, with `waitMs`/`initialWaitMs`, when output doesn't start or goes quiet; always capped by `maxWaitMs`. Shared by `getContent` and `type`; `type` snapshots the text up to the cursor before typing and passes it as `untilIgnore`, so the prompt it's answering doesn't match (comparing text, not "any output arrived", because line editors like PSReadLine send invisible sequences first).
 - `manager.ts`: Multi-session manager. Owns a map of `TerminalSession`s plus a single `RecordingManager` and (optional) `SandboxController`. The "default" session is auto-created on first use and is the implicit target of any tool call without a `sessionId`. Idle non-default sessions are GC'd on a 60s interval.
 
 **Tool Layer** (`src/tools/`):
@@ -45,7 +45,7 @@ Terminal MCP is a headless terminal emulator exposed via Model Context Protocol 
 - Pattern: `export const fooTool = {...}` + `export function handleFoo(manager, args)`
 - Single-session tools: `type`, `sendKey`, `getContent`, `takeScreenshot` (formats: `text`, `ansi`, `png`). All accept an optional `sessionId` to target a specific session; omit for the default.
 - Recording tools: `startRecording`, `stopRecording`. Recording is process-wide — when active, it captures output from all sessions in the manager.
-- Multi-session tools: `createSession`, `listSessions`, `destroySession`. The default session cannot be destroyed.
+- Multi-session tools: `createSession` (optional `shell` name/path and `shellArgs`), `listSessions`, `listShells`, `destroySession`. The default session cannot be destroyed.
 
 **Setup Layer** (`src/setup/`):
 - `clients.ts`: One adapter per supported AI tool (codex, copilot, gemini, opencode, claude-code, claude-desktop). Each adapter knows the client's config path, format (JSON or TOML), and the exact MCP server schema that client expects. Most use the standard `mcpServers` JSON shape via `makeMcpServersJsonAdapter`; codex (TOML) and opencode (different schema entirely — top-level `mcp`, command as array) have their own adapters.

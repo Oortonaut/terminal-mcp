@@ -22,13 +22,16 @@ export interface TerminalManagerOptions extends TerminalSessionOptions {
 
 export interface CreateSessionOptions {
   shell?: string;
+  shellArgs?: string[];
   cols?: number;
   rows?: number;
 }
 
 export interface SessionMetadata {
   sessionId: string;
+  /** Resolved shell executable path */
   shell: string;
+  shellArgs: string[];
   cols: number;
   rows: number;
   createdAt: string;
@@ -178,7 +181,8 @@ export class TerminalManager {
         session,
         metadata: {
           sessionId: id,
-          shell: this.options.shell ?? process.env.SHELL ?? "/bin/bash",
+          shell: session.getShell(),
+          shellArgs: session.getShellArgs(),
           cols: dims.cols,
           rows: dims.rows,
           createdAt: now,
@@ -242,7 +246,7 @@ export class TerminalManager {
     const session = this.getCurrentSession();
     const dimensions = session?.getDimensions() ?? { cols: 120, rows: 40 };
     recorder.start(dimensions.cols, dimensions.rows, {
-      SHELL: this.options.shell ?? process.env.SHELL,
+      SHELL: session?.getShell() ?? this.options.shell ?? process.env.SHELL,
       TERM: 'xterm-256color',
     });
     this.autoRecordingId = recorder.id;
@@ -269,6 +273,8 @@ export class TerminalManager {
     const session = await TerminalSession.create({
       ...this.options,
       shell: opts.shell ?? this.options.shell,
+      // Default shell args (--shell-arg) belong to the default shell; a different shell starts clean
+      shellArgs: opts.shellArgs ?? (opts.shell === undefined ? this.options.shellArgs : undefined),
       cols: opts.cols ?? this.options.cols,
       rows: opts.rows ?? this.options.rows,
       // Created sessions don't share the interactive startup banner
@@ -280,7 +286,8 @@ export class TerminalManager {
     const now = new Date().toISOString();
     const metadata: SessionMetadata = {
       sessionId: id,
-      shell: opts.shell ?? this.options.shell ?? process.env.SHELL ?? "/bin/bash",
+      shell: session.getShell(),
+      shellArgs: session.getShellArgs(),
       cols: dims.cols,
       rows: dims.rows,
       createdAt: now,

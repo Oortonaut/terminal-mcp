@@ -13,6 +13,7 @@ import { startRecordingTool, handleStartRecording } from "./startRecording.js";
 import { stopRecordingTool, handleStopRecording } from "./stopRecording.js";
 import { createSessionTool, handleCreateSession } from "./createSession.js";
 import { listSessionsTool, handleListSessions } from "./listSessions.js";
+import { listShellsTool, handleListShells } from "./listShells.js";
 import { destroySessionTool, handleDestroySession } from "./destroySession.js";
 
 const tools = [
@@ -24,6 +25,7 @@ const tools = [
   stopRecordingTool,
   createSessionTool,
   listSessionsTool,
+  listShellsTool,
   destroySessionTool,
 ];
 
@@ -62,6 +64,9 @@ export function registerTools(server: Server, manager: TerminalManager): void {
 
         case "listSessions":
           return handleListSessions(manager, args);
+
+        case "listShells":
+          return handleListShells(manager, args);
 
         case "destroySession":
           return handleDestroySession(manager, args);

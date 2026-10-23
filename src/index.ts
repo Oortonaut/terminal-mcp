@@ -8,7 +8,8 @@ import { startMcpClientMode } from "./client.js";
 import { TerminalManager } from "./terminal/index.js";
 import { createToolProxyServer } from "./transport/index.js";
 import { getBanner } from "./ui/index.js";
-import { getDefaultSocketPath, getDefaultShell, getDefaultRecordDir } from "./utils/platform.js";
+import { getDefaultSocketPath, getDefaultRecordDir } from "./utils/platform.js";
+import { listShells, resolveShell } from "./utils/shells.js";
 import {
   SandboxController,
   loadConfigFromFile,
@@ -72,6 +73,7 @@ const options: {
   cols?: number;
   rows?: number;
   shell?: string;
+  shellArgs?: string[];
   socket?: string;
   headless?: boolean;
   sandbox?: boolean;
@@ -109,6 +111,19 @@ for (let i = 0; i < args.length; i++) {
         i++;
       }
       break;
+    case "--shell-arg":
+      // Repeatable; the value is taken as-is even if it starts with "-" (e.g. --shell-arg -d)
+      if (next !== undefined) {
+        (options.shellArgs ??= []).push(next);
+        i++;
+      }
+      break;
+    case "--list-shells":
+      for (const shell of listShells()) {
+        const marker = shell.isDefault ? " (default)" : "";
+        console.log(`${shell.name.padEnd(12)} ${shell.path}${marker}\n${"".padEnd(12)} ${shell.description}`);
+      }
+      process.exit(0);
     case "--socket":
       if (next) {
         options.socket = next;
@@ -197,7 +212,10 @@ Usage: terminal-mcp [options]
 Options:
   --cols <number>        Terminal width in columns (default: auto or 120)
   --rows <number>        Terminal height in rows (default: auto or 40)
-  --shell <path>         Shell to use (default: $SHELL or bash)
+  --shell <name|path>    Shell to use: a name (bash, zsh, pwsh, powershell, cmd, git-bash, wsl, ...)
+                         or a path (default: $TERMINAL_MCP_SHELL, then $SHELL or %COMSPEC%)
+  --shell-arg <arg>      Extra argument for the shell; repeat for several (e.g. --shell-arg -d --shell-arg Ubuntu)
+  --list-shells          List the shells installed on this machine and exit
   --socket <path>        Unix socket path for MCP (default: ${DEFAULT_SOCKET_PATH})
   --headless             Run in headless mode (MCP server with embedded terminal, no TTY needed)
   --sandbox              Enable sandbox mode (restricts filesystem/network access)
@@ -225,6 +243,7 @@ Recording Options:
                       Resets on each terminal output event
 
 Environment Variables:
+  TERMINAL_MCP_SHELL       Default shell (name or path) when --shell is not given
   TERMINAL_MCP_RECORD_DIR  Default recording output directory
 
 Mode Detection:
@@ -313,6 +332,7 @@ async function main() {
       cols: options.cols,
       rows: options.rows,
       shell: options.shell,
+      shellArgs: options.shellArgs,
       maxSessions: options.maxSessions,
       sessionIdleTimeout: options.sessionIdleTimeout,
     });
@@ -338,7 +358,13 @@ async function startInteractiveMode(socketPath: string): Promise<void> {
   // Get terminal size from environment or use defaults
   const cols = options.cols ?? (process.stdout.columns || 120);
   const rows = options.rows ?? (process.stdout.rows || 40);
-  const shell = options.shell || getDefaultShell();
+  let shell: string;
+  try {
+    shell = resolveShell(options.shell);
+  } catch (error) {
+    console.error(`[terminal-mcp] ${error instanceof Error ? error.message : String(error)}`);
+    process.exit(1);
+  }
 
   // Initialize sandbox if enabled
   let sandboxController: SandboxController | undefined;
@@ -426,6 +452,7 @@ async function startInteractiveMode(socketPath: string): Promise<void> {
     cols,
     rows,
     shell: options.shell,
+    shellArgs: options.shellArgs,
     startupBanner,
     sandboxController,
     record: options.record,
