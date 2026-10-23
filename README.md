@@ -109,7 +109,10 @@ terminal-mcp [OPTIONS]
 Options:
   --cols <number>        Terminal width in columns (default: 120)
   --rows <number>        Terminal height in rows (default: 40)
-  --shell <path>         Shell to use (default: $SHELL or bash)
+  --shell <name|path>    Shell to use: a name (see Choosing a Shell) or a path
+                         (default: $TERMINAL_MCP_SHELL, then $SHELL, or %COMSPEC% on Windows)
+  --shell-arg <arg>      Extra argument for the shell; repeat for several
+  --list-shells          List the shells installed on this machine and exit
   --headless             Run in headless mode (embedded PTY + MCP over stdio, no TTY needed)
   --sandbox              Enable sandbox mode (restricts filesystem/network)
   --sandbox-config <path> Load sandbox config from JSON file
@@ -129,6 +132,34 @@ Multi-Session Options:
   --max-sessions <n>           Max concurrent sessions (default: 5)
   --session-idle-timeout <sec> Idle non-default sessions are auto-destroyed
                                after this period (default: 600s)
+
+Environment Variables:
+  TERMINAL_MCP_SHELL       Default shell (name or path) when --shell is not given
+  TERMINAL_MCP_RECORD_DIR  Default recording output directory
+```
+
+### Choosing a Shell
+
+`--shell`, `TERMINAL_MCP_SHELL` and `createSession`'s `shell` all accept either a path or a name. Run `terminal-mcp --list-shells` (or call the `listShells` tool) to see what's installed.
+
+| Platform | Names |
+|----------|-------|
+| Windows | `cmd`, `powershell` (5.1), `pwsh` (7+), `git-bash` (alias `bash`), `wsl` |
+| macOS / Linux | `bash`, `zsh`, `sh`, `fish`, `dash`, `ksh`, `tcsh`, `nu`, `pwsh`, plus anything in `/etc/shells` |
+
+Any other name is looked up on `PATH`. On Windows, `bash` means Git Bash rather than `System32\bash.exe`, which is WSL. For WSL, use `wsl`, adding `--shell-arg -d --shell-arg Ubuntu` to pick a distro.
+
+The shell is chosen in this order: `createSession`'s `shell`, then `--shell`, then `TERMINAL_MCP_SHELL`, then the platform default. `--shell-arg` values go to the default shell; `createSession` takes its own `shellArgs`, and a session created with a different `shell` doesn't inherit `--shell-arg`.
+
+```json
+{
+  "mcpServers": {
+    "terminal": {
+      "command": "terminal-mcp",
+      "args": ["--headless", "--shell", "pwsh", "--shell-arg", "-NoProfile"]
+    }
+  }
+}
 ```
 
 ## Headless Mode
@@ -172,7 +203,7 @@ terminal-mcp --headless
         Shell Process (bash, zsh, etc.)
 ```
 
-In headless mode, the terminal session is initialized eagerly at startup, so all tools (`type`, `sendKey`, `getContent`, `takeScreenshot`, `startRecording`, `stopRecording`, `createSession`, `listSessions`, `destroySession`) are available immediately.
+In headless mode, the terminal session is initialized eagerly at startup, so all tools (`type`, `sendKey`, `getContent`, `takeScreenshot`, `startRecording`, `stopRecording`, `createSession`, `listSessions`, `listShells`, `destroySession`) are available immediately.
 
 ## MCP Tools
 
@@ -281,19 +312,21 @@ Create a new terminal session and return its metadata. Use the returned `session
 {
   "name": "createSession",
   "arguments": {
-    "shell": "/bin/zsh",
+    "shell": "zsh",
+    "shellArgs": ["-l"],
     "cols": 100,
     "rows": 30
   }
 }
 ```
 
-All arguments are optional. Returns:
+All arguments are optional. `shell` is a name or path (see [Choosing a Shell](#choosing-a-shell)); `shellArgs` are extra arguments for it. Returns the resolved shell path:
 
 ```json
 {
   "sessionId": "3029d",
   "shell": "/bin/zsh",
+  "shellArgs": ["-l"],
   "cols": 100,
   "rows": 30,
   "createdAt": "2026-04-25T12:58:01.072Z",
@@ -307,6 +340,22 @@ List all active sessions including the default. Reports configured limits.
 
 ```json
 { "name": "listSessions", "arguments": {} }
+```
+
+### `listShells`
+List the shells installed on this machine. Any entry's `name` or `path` can be passed as `createSession`'s `shell`; `isDefault` marks the shell used when none is given.
+
+```json
+{ "name": "listShells", "arguments": {} }
+```
+
+```json
+{
+  "shells": [
+    { "name": "zsh", "path": "/bin/zsh", "description": "Z shell", "isDefault": true },
+    { "name": "bash", "path": "/bin/bash", "description": "Bourne Again Shell", "isDefault": false }
+  ]
+}
 ```
 
 ### `destroySession`

@@ -11,6 +11,7 @@ export interface ServerOptions {
   cols?: number;
   rows?: number;
   shell?: string;
+  shellArgs?: string[];
   maxSessions?: number;
   sessionIdleTimeout?: number;
 }
@@ -33,7 +34,8 @@ inspect cursor position and TUI state.
 
 Multi-session: omit sessionId to drive the default session, or call createSession to
 get a new isolated PTY for parallel work (e.g. a build in one session, diagnostics in
-another). The default session cannot be destroyed.`;
+another). The default session cannot be destroyed. createSession takes a shell name
+(bash, zsh, pwsh, cmd, git-bash, wsl, ...) or path; listShells shows what is installed.`;
 
 export function createServerWithManager(manager: TerminalManager): Server {
   const server = new Server(
@@ -67,6 +69,7 @@ export function createServer(options: ServerOptions = {}): {
     cols: options.cols,
     rows: options.rows,
     shell: options.shell,
+    shellArgs: options.shellArgs,
     maxSessions: options.maxSessions,
     sessionIdleTimeout: options.sessionIdleTimeout,
   });
