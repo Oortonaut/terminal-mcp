@@ -2,6 +2,8 @@
  * Shared tool definitions used by both MCP client and UI
  */
 
+import { readOptionsProperties } from "./getContent.js";
+
 export interface ToolDefinition {
   name: string;
   description: string;
@@ -15,7 +17,8 @@ export interface ToolDefinition {
 export const toolDefinitions: ToolDefinition[] = [
   {
     name: "type",
-    description: "Type text into the terminal",
+    description:
+      "Type text into the terminal (end with \\r to run it). Returns the line cursor from before typing; pass until (a regex for the prompt you expect, e.g. \"\\\\(gdb\\\\) $\") or waitMs (a quiet period) to get the output back in the same call",
     inputSchema: {
       type: "object",
       properties: {
@@ -23,6 +26,7 @@ export const toolDefinitions: ToolDefinition[] = [
           type: "string",
           description: "The text to type",
         },
+        ...readOptionsProperties,
       },
       required: ["text"],
     },
@@ -44,10 +48,20 @@ export const toolDefinitions: ToolDefinition[] = [
   },
   {
     name: "getContent",
-    description: "Get the current content of the terminal buffer",
+    description:
+      "Get terminal lines, headed by [lines A-B · cursor N]. Pass a previous cursor as begin to read only newer output; pass until (a prompt regex) or waitMs (a quiet period) to wait for output first",
     inputSchema: {
       type: "object",
       properties: {
+        begin: {
+          type: "number",
+          description: "First line number to return, usually a previous cursor",
+        },
+        end: {
+          type: "number",
+          description: "Line number to stop before (exclusive)",
+        },
+        ...readOptionsProperties,
         visibleOnly: {
           type: "boolean",
           description: "If true, only return visible content (default: false)",

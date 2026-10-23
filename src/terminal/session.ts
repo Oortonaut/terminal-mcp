@@ -6,6 +6,8 @@ import xtermHeadless from "@xterm/headless";
 const { Terminal } = xtermHeadless;
 import { getDefaultShell } from "../utils/platform.js";
 import type { SandboxController } from "../sandbox/index.js";
+import { LineTracker, type LineRead, type LineReadOptions } from "./lines.js";
+import type { OutputSource } from "./wait.js";
 
 // Custom prompt indicator for terminal-mcp.
 // Includes "mcp" so it's unmistakable — many shell themes (oh-my-zsh,
@@ -40,11 +42,15 @@ export interface ScreenshotResult {
  * Terminal session that combines node-pty with xterm.js headless
  * for full terminal emulation
  */
-export class TerminalSession {
+export class TerminalSession implements OutputSource {
   private ptyProcess!: pty.IPty;
   private terminal!: InstanceType<typeof Terminal>;
+  private lineTracker!: LineTracker;
+  private outputChunks = 0;
+  private lastOutputTime = 0;
   private disposed = false;
   private dataListeners: Array<(data: string) => void> = [];
+  private parsedListeners = new Set<() => void>();
   private exitListeners: Array<(code: number) => void> = [];
   private resizeListeners: Array<(cols: number, rows: number) => void> = [];
 
@@ -192,6 +198,7 @@ ${bannerCmd}
       scrollback: 1000,
       allowProposedApi: true,
     });
+    this.lineTracker = new LineTracker(this.terminal);
 
     // Determine shell type and set up custom prompt
     const shellName = path.basename(shell);
@@ -225,7 +232,11 @@ ${bannerCmd}
     // Pipe PTY output to terminal emulator and listeners
     this.ptyProcess.onData((data) => {
       if (!this.disposed) {
-        this.terminal.write(data);
+        this.terminal.write(data, () => {
+          for (const listener of this.parsedListeners) listener();
+        });
+        this.outputChunks++;
+        this.lastOutputTime = Date.now();
         // Notify all data listeners
         for (const listener of this.dataListeners) {
           listener(data);
@@ -270,6 +281,57 @@ ${bannerCmd}
       throw new Error("Terminal session has been disposed");
     }
     this.ptyProcess.write(data);
+  }
+
+  /**
+   * Read lines by stable row number; see LineTracker
+   */
+  readLines(options: LineReadOptions = {}): LineRead {
+    if (this.disposed) {
+      throw new Error("Terminal session has been disposed");
+    }
+    return this.lineTracker.read(options);
+  }
+
+  /**
+   * Row number of the terminal cursor, for a later readLines({ since })
+   */
+  getCursorLine(): number {
+    if (this.disposed) {
+      throw new Error("Terminal session has been disposed");
+    }
+    return this.lineTracker.cursor();
+  }
+
+  /**
+   * Resolve once xterm has parsed all PTY output received so far
+   */
+  flush(): Promise<void> {
+    if (this.disposed) return Promise.resolve();
+    return new Promise((resolve) => this.terminal.write("", resolve));
+  }
+
+  /**
+   * Text from row begin up to the terminal cursor; see LineTracker.textToCursor
+   */
+  textToCursor(begin?: number): string {
+    if (this.disposed) {
+      throw new Error("Terminal session has been disposed");
+    }
+    return this.lineTracker.textToCursor(begin);
+  }
+
+  onOutputParsed(listener: () => void): () => void {
+    this.parsedListeners.add(listener);
+    return () => this.parsedListeners.delete(listener);
+  }
+
+  outputCount(): number {
+    return this.outputChunks;
+  }
+
+  lastOutputAt(): number {
+    return this.lastOutputTime;
   }
 
   /**
@@ -478,7 +540,7 @@ ${bannerCmd}
     if (this.disposed) {
       throw new Error("Terminal session has been disposed");
     }
-    this.terminal.resize(cols, rows);
+    this.lineTracker.resize(cols, rows);
     this.ptyProcess.resize(cols, rows);
 
     // Notify all resize listeners

@@ -179,16 +179,21 @@ In headless mode, the terminal session is initialized eagerly at startup, so all
 All input/output tools (`type`, `sendKey`, `getContent`, `takeScreenshot`) accept an optional `sessionId` argument. Omit it to target the default session; pass the ID returned by `createSession` to drive a specific session.
 
 ### `type`
-Send text input to the terminal.
+Send text input to the terminal. End the text with `\r` to run it as a command.
 
 ```json
 {
   "name": "type",
   "arguments": {
-    "text": "echo hello"
+    "text": "run\r",
+    "until": "\\(gdb\\) $"
   }
 }
 ```
+
+With a wait option, `type` makes a request/response cycle in one call. It waits, then returns everything from the line it typed on, in `getContent`'s format. It accepts the same `until`, `waitMs`, `initialWaitMs`, `maxWaitMs` and `maxLines` (see [Waiting for output](#waiting-for-output)). `type` only checks `until` once new output has arrived, because the prompt you're replacing is still on screen at the moment you type.
+
+Without a wait, it returns the cursor from before typing (`Typed 11 character(s) to terminal [cursor 3]`), so `getContent({ begin: 3 })` reads just that command's output.
 
 ### `sendKey`
 Send special keys or key combinations.
@@ -210,16 +215,47 @@ Supported keys:
 - Control: `Ctrl+A` through `Ctrl+Z`, `Ctrl+C`, `Ctrl+D`, etc.
 
 ### `getContent`
-Get the terminal buffer as plain text.
+Get terminal lines as plain text. Every result starts with a header:
+
+```
+[lines 59-158 · cursor 158 · 53 earlier line(s) omitted; read them with begin: 6, end: 59]
+row52
+...
+```
+
+Lines are numbered from the start of the session and keep their numbers as scrollback fills and old lines are dropped. The **cursor** is the line the terminal cursor is on. Pass it back as `begin` to read only what came after; that line is included again, because it's the one that may still change, like a prompt or progress bar. Soft-wrapped rows are joined into one line.
 
 ```json
 {
   "name": "getContent",
-  "arguments": {
-    "visibleOnly": false
-  }
+  "arguments": { "begin": 158, "until": "Breakpoint \\d+,", "maxWaitMs": 60000 }
 }
 ```
+
+| Argument | Description |
+|----------|-------------|
+| `begin` | First line number to return, usually a previous cursor |
+| `end` | Line number to stop before (exclusive), e.g. to read omitted lines |
+| `maxLines` | Return at most this many lines, keeping the last ones (default 100) |
+| `until`, `waitMs`, `initialWaitMs`, `maxWaitMs` | Wait for output first; see below |
+| `visibleOnly` | Return just the visible screen instead |
+
+The header also reports lines already dropped from scrollback, and how long it waited and why it stopped. When a full-screen app (vim, less, htop) is running, the result is that app's screen.
+
+#### Waiting for output
+
+`type` and `getContent` can wait before reading. With no wait option, they read immediately.
+
+| Option | Ends the wait when |
+|--------|--------------------|
+| `until` | This regex (JavaScript syntax) matches the new text, from `begin` up to the terminal cursor |
+| `waitMs` | Output has been quiet this many milliseconds |
+| `initialWaitMs` | No output has started within this many milliseconds (default: `waitMs`) |
+| `maxWaitMs` | This many milliseconds have passed in total (default 30000, max 600000) |
+
+`until` works with any program, because you say what its prompt looks like. Without the `m` flag, `$` means "at the cursor", so `\(gdb\) $` means gdb is waiting at its prompt, `>>> $` means Python is, and `\$ $` matches a typical bash prompt. A pattern without `$`, like `Breakpoint \d+,`, matches anywhere in the new output.
+
+`waitMs` is the fallback when you don't know the prompt. The shell echoes what you type immediately, so choose a `waitMs` longer than the longest silence you expect from the command. Options can be combined; whichever condition is met first ends the wait, and the header says which one.
 
 ### `takeScreenshot`
 Capture the terminal state. Supports three output formats:
@@ -472,14 +508,14 @@ terminal-mcp (client, spawned by MCP client)
 ## Example Session
 
 ```bash
-# Type a command
-{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"type","arguments":{"text":"ls -la"}}}
+# Run a command and get its output in one call
+{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"type","arguments":{"text":"ls -la\r","waitMs":500}}}
 
-# Send Enter key
-{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"sendKey","arguments":{"key":"Enter"}}}
+# Or step by step: type returns a cursor...
+{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"type","arguments":{"text":"make\r"}}}
 
-# Get the output
-{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"getContent","arguments":{}}}
+# ...and getContent reads only what came after it, once output goes quiet
+{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"getContent","arguments":{"begin":42,"waitMs":2000}}}
 ```
 
 ## Development

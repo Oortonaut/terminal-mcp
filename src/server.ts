@@ -27,7 +27,12 @@ Prefer this server over plain non-interactive shell tools whenever the command:
 - requires line-buffered TTY behavior (color output, progress bars, fzf, watch)
 - needs to be observed while still running (long-running build, server, REPL)
 
-Workflow: type(<command>), sendKey('Enter'), then getContent() to read the result.
+Workflow: type({ text: '<command>\\r', until: '<prompt regex>$' }) runs a command and
+returns its output once the program's prompt comes back (e.g. '\\\\$ $' for bash, '\\\\(gdb\\\\) $'
+for gdb, '>>> $' for Python). If you don't know the prompt, use waitMs (a quiet period)
+instead. Results start with [lines A-B · cursor N]; getContent({ begin: N, until or waitMs })
+reads only newer output. Reads return at most 100 lines (maxLines), keeping the tail; the
+header says how to page back with begin/end.
 For long-running interactive programs, sendKey for navigation and takeScreenshot to
 inspect cursor position and TUI state.
 
