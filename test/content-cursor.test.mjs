@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnNode, waitFor, callTool, findResponse, initialize } from "./helpers.mjs";
+import { formatRead } from "../dist/tools/getContent.js";
 
 /** Call a tool and return its text result. */
 async function call(state, id, name, args) {
@@ -9,6 +10,17 @@ async function call(state, id, name, args) {
   assert.ok(!response.result.isError, JSON.stringify(response));
   return response.result.content[0].text;
 }
+
+test("a missed until shows the end of the last line before the cursor", () => {
+  const read = { lines: [], firstRow: 3, lastRow: 4, cursor: 4, omitted: null, lost: 0, alternate: false };
+  const wait = { reason: "max-wait", waitedMs: 30000 };
+  const header = formatRead(read, wait, { until: /\$ $/, text: `ls\r\nfoo\nC:\\dev\\${"x".repeat(50)}>` });
+  assert.equal(
+    header,
+    `[lines 3-4 · cursor 4 · waited 30.0s, hit maxWaitMs · until /\\$ $/ never matched; text before the cursor ends "…${"x".repeat(39)}>"]`
+  );
+  assert.doesNotMatch(formatRead(read, wait), /never matched/);
+});
 
 test("type with waitMs returns the command's output, capped, and begin/end page through it", async () => {
   const state = spawnNode(["dist/index.js", "--headless"]);
@@ -67,6 +79,10 @@ test("type with until waits for a program's own prompt, not the one already on s
     const waited = Number(result.match(/waited (\d+\.\d)s, matched until\]/)?.[1]);
     assert.ok(waited >= 0.6, `should wait for the result, waited ${waited}s:\n${result}`);
     assert.match(result, /'done1'/);
+
+    // A pattern that misses says what it was tested against, trailing space included
+    const missed = await call(state, 7, "type", { text: "1 + 1<:Enter:>", until: ">$", maxWaitMs: 1500 });
+    assert.match(missed, /hit maxWaitMs · until \/>\$\/ never matched; text before the cursor ends "> "\]/);
 
     const badPattern = await (async () => {
       callTool(state, 5, "type", { text: "x", until: "(" });

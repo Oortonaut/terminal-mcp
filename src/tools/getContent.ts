@@ -103,8 +103,26 @@ const WAIT_REASONS: Record<WaitResult["reason"], string> = {
   exited: "session exited",
 };
 
+const MISS_TAIL_CHARS = 40;
+
+/** An until that didn't match, and the text it was tested against */
+export interface UntilMiss {
+  until: RegExp;
+  text: string;
+}
+
+/**
+ * The end of the last line before the cursor, quoted so trailing spaces and control characters
+ * show: enough to see why a prompt pattern like "> $" missed a prompt that ends in ">".
+ */
+function describeMiss({ until, text }: UntilMiss): string {
+  const line = text.slice(text.lastIndexOf("\n") + 1);
+  const tail = line.length > MISS_TAIL_CHARS ? `…${line.slice(-MISS_TAIL_CHARS)}` : line;
+  return `until ${until} never matched; text before the cursor ends ${JSON.stringify(tail)}`;
+}
+
 /** Header line plus lines, e.g. "[lines 812-860 · cursor 860]\n..." */
-export function formatRead(read: LineRead, wait?: WaitResult): string {
+export function formatRead(read: LineRead, wait?: WaitResult, miss?: UntilMiss): string {
   const parts: string[] = [];
   if (read.alternate) {
     parts.push("full-screen app; showing its screen");
@@ -124,6 +142,9 @@ export function formatRead(read: LineRead, wait?: WaitResult): string {
   }
   if (wait) {
     parts.push(`waited ${(wait.waitedMs / 1000).toFixed(1)}s, ${WAIT_REASONS[wait.reason]}`);
+  }
+  if (miss) {
+    parts.push(describeMiss(miss));
   }
   const header = `[${parts.join(" · ")}]`;
   return read.lines.length > 0 ? `${header}\n${read.lines.join("\n")}` : header;
@@ -180,7 +201,11 @@ export async function readContent(manager: TerminalManager, request: ReadRequest
     { begin: request.begin, end: request.end, maxLines: request.maxLines },
     request.sessionId
   );
-  return formatRead(read, wait);
+  const miss =
+    request.until && wait && wait.reason !== "matched"
+      ? { until: request.until, text: manager.textToCursor(request.begin, request.sessionId) }
+      : undefined;
+  return formatRead(read, wait, miss);
 }
 
 export async function handleGetContent(

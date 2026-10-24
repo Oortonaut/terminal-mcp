@@ -294,7 +294,11 @@ The header also reports lines already dropped from scrollback, and how long it w
 | `initialWaitMs` | No output has started within this many milliseconds (default: `waitMs`) |
 | `maxWaitMs` | This many milliseconds have passed in total (default 30000, max 600000) |
 
-`until` works with any program, because you say what its prompt looks like. Without the `m` flag, `$` means "at the cursor", so `\(gdb\) $` means gdb is waiting at its prompt, `>>> $` means Python is, and `\$ $` matches a typical bash prompt. A pattern without `$`, like `Breakpoint \d+,`, matches anywhere in the new output.
+`until` works with any program, because you say what its prompt looks like. Without the `m` flag, `$` means "at the cursor", so `\(gdb\) $` means gdb is waiting at its prompt, `>>> $` means Python is, and `\$ $` matches a typical bash prompt. A pattern without `$`, like `Breakpoint \d+,`, matches anywhere in the new output. If the wait ends without a match, the header quotes the end of the line before the cursor, so a near miss is easy to spot, such as `> $` against cmd's prompt, which ends in `>` with no space:
+
+```
+[lines 9-12 · cursor 12 · waited 30.0s, hit maxWaitMs · until /> $/ never matched; text before the cursor ends "C:\\dev\\terminal-mcp>"]
+```
 
 `waitMs` is the fallback when you don't know the prompt. The shell echoes what you type immediately, so choose a `waitMs` longer than the longest silence you expect from the command. Options can be combined; whichever condition is met first ends the wait, and the header says which one.
 
