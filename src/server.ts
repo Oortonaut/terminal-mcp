@@ -35,7 +35,8 @@ quiet period) instead. Results start with [lines A-B · cursor N]; getContent({ 
 until or waitMs }) reads only newer output. Reads return at most 100 lines (maxLines),
 keeping the tail; the header says how to page back with begin/end.
 type() takes keys between <: and :> (<:Enter:>, <:Tab:>, <:ctrl-c:> or <:^C:>, <:alt-x:>
-or <:!x:>, <:shift-Tab:> or <:+Tab:>); pass sendKeys: false to type text verbatim.
+or <:!x:>, <:shift-Tab:> or <:+Tab:>). A newline in text is sent as Enter, so multi-line
+text runs line by line in any shell. Pass sendKeys: false to type text verbatim.
 For long-running interactive programs, sendKey for navigation and takeScreenshot to
 inspect cursor position and TUI state.
 

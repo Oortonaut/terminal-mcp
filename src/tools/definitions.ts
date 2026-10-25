@@ -18,7 +18,7 @@ export const toolDefinitions: ToolDefinition[] = [
   {
     name: "type",
     description:
-      "Type text into the terminal, with keys between <: and :> (e.g. ls<:Enter:>, <:ctrl-c:>, <:^C:>, <:alt-ctrl-C:>, <:+Tab:>); unrecognized keys or unmatched <: :> are typed literally with a warning. Returns the line cursor from before typing; pass until (a regex for the prompt you expect, e.g. \"\\\\(gdb\\\\) $\") or waitMs (a quiet period) to get the output back in the same call",
+      "Type text into the terminal, with keys between <: and :> (e.g. ls<:Enter:>, <:ctrl-c:>, <:^C:>, <:alt-ctrl-C:>, <:+Tab:>); unrecognized keys or unmatched <: :> are typed literally with a warning. A newline is sent as Enter. Returns the line cursor from before typing; pass until (a regex for the prompt you expect, e.g. \"\\\\(gdb\\\\) $\") or waitMs (a quiet period) to get the output back in the same call",
     inputSchema: {
       type: "object",
       properties: {
@@ -28,7 +28,7 @@ export const toolDefinitions: ToolDefinition[] = [
         },
         sendKeys: {
           type: "boolean",
-          description: "Parse <:Key:> escapes in text (default: true); false types text verbatim",
+          description: "Parse <:Key:> escapes in text (default: true); false types text verbatim (newlines are still sent as Enter)",
           default: true,
         },
         ...readOptionsProperties,

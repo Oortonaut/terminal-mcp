@@ -117,6 +117,18 @@ test("handleType with sendKeys: false types escapes verbatim", async () => {
   assert.equal(result.content[0].text, "Typed 14 character(s) to terminal [cursor 7]");
 });
 
+test("handleType sends a newline as Enter, with or without sendKeys", async () => {
+  for (const sendKeys of [true, false]) {
+    const m = fakeManager();
+    const result = await handleType(m, { text: ["echo one\necho two\r\n", "a\rb\n"], sendKeys });
+    assert.deepEqual(m.writes, [{ d: "echo one\recho two\ra\rb\r", sessionId: undefined }], `sendKeys: ${sendKeys}`);
+    assert.equal(result.content[0].text, "Typed 22 character(s) to terminal [cursor 7]");
+  }
+  const m = fakeManager();
+  await handleType(m, { text: "a\n<:ctrl-j:>" });
+  assert.deepEqual(m.writes, [{ d: "a\r\n", sessionId: undefined }], "<:ctrl-j:> still sends a bare LF");
+});
+
 test("handleType types bad escapes literally and reports them as warnings", async () => {
   const m = fakeManager();
   const result = await handleType(m, { text: ["ok<:Enter:>", "echo <:c:><:Enter:>"] });
