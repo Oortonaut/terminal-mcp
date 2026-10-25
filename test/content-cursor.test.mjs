@@ -55,6 +55,10 @@ test("type with waitMs returns the command's output, capped, and begin/end page 
     const after = await call(state, 6, "getContent", { begin: cursor, waitMs: 1000 });
     assert.match(after, /after_marker/);
     assert.doesNotMatch(after, /row149/);
+
+    // A newline in text runs the line, in cmd and pwsh as well as bash
+    const lines2 = await call(state, 7, "type", { text: "echo nl_one\necho nl_two\n", waitMs: 1500, initialWaitMs: 5000 });
+    assert.match(lines2, /^nl_one$[\s\S]*^nl_two$/m);
   } finally {
     state.child.stdin.end();
     await waitFor(() => state.exit !== null).catch(() => state.child.kill());

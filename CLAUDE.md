@@ -77,4 +77,4 @@ Tool Proxy Server ←───────────────→ Socket Cli
 - ES Modules with `.js` extensions in imports (NodeNext module resolution)
 - Zod for runtime validation of tool arguments
 - Tools return `{ content: [{ type: "text", text: string }], isError?: boolean }` (except `takeScreenshot` png format which returns `{ type: "image", data: string, mimeType: string }`)
-- Key sequences are in `src/utils/keys.ts` (ANSI escape codes)
+- Key sequences are in `src/utils/keys.ts` (ANSI escape codes); `parseKeyInput` turns `type`'s `<:Key:>` escapes into sequences unless `sendKeys: false`. Before that, `type` always sends newlines in its text as CR (Enter), since cmd ignores a bare LF and PSReadLine treats it as a continuation line

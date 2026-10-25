@@ -230,7 +230,11 @@ Key escapes (parsed unless `"sendKeys": false`):
 | `<:ctrl-c:>`, `<:alt-x:>`, `<:shift-Tab:>`, `<:alt-ctrl-C:>`, `<:ctrl-alt-C:>` | Key with modifiers (`ctrl`/`alt`/`shift` words, any order) |
 | `<:^C:>`, `<:!x:>`, `<:+Tab:>`, `<:!^C:>` | Same, using prefixes `^` = ctrl, `!` = alt, `+` = shift |
 
-A single character needs at least one modifier (`<:^C:>`; for a plain `c`, just type `c`). Anything between the delimiters that isn't a recognized key, and any unmatched `<:` or `:>`, is typed literally and reported as a warning in the result, so code like `T <: Number` comes out as written. Pass `"sendKeys": false` to type text verbatim with no parsing or warnings.
+A single character needs at least one modifier (`<:^C:>`; for a plain `c`, just type `c`). Anything between the delimiters that isn't a recognized key, and any unmatched `<:` or `:>`, is typed literally and reported as a warning in the result, so code like `T <: Number` comes out as written.
+
+A newline in `text` is always sent as Enter (CR), the way a terminal sends pasted text, so `"echo one\necho two\n"` runs both commands in every shell. Without this, cmd ignores a bare LF and PowerShell's line editor treats it as a continuation line; only bash would run the command. CRLF also becomes one Enter, and `<:ctrl-j:>` sends a bare LF if a program needs one.
+
+Pass `"sendKeys": false` to type text verbatim, with no key parsing or warnings. Newlines are still sent as Enter.
 
 With a wait option, `type` makes a request/response cycle in one call. It waits, then returns everything from the line it typed on, in `getContent`'s format. It accepts the same `until`, `waitMs`, `initialWaitMs`, `maxWaitMs` and `maxLines` (see [Waiting for output](#waiting-for-output)). `type` doesn't count an `until` match until the screen has changed from how it was when you typed, because the prompt you're answering would otherwise match straight away.
 
